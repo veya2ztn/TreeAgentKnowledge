@@ -33,10 +33,11 @@ class AgentMessage:
     metadata: Dict = None
 
 class NodeAgent(ChatAgent):
-    def __init__(self, key: str, value: Any):
+    def __init__(self, key: str, value: Any, metadata: Dict=None):
         system_message = BaseMessage(
             role_name="KnowledgeNode",
-            role_type=RoleType.ASSISTANT,
+            role_type=RoleType.CRITIC,
+            meta_dict=metadata,
             content=f"""You are a knowledge node agent responsible for managing content about: {key}
             Your responsibilities include:
             1. Evaluating content relevance to your topic
@@ -220,13 +221,13 @@ if __name__ == "__main__":
     # Load the tree
     tree = KnowledgeTree.load_from_file("TreeKnowledge.example.json")
     
-    # # Example content to process
+    # Example content to process
     # content = {
     #     "title": "New Research in Self-Supervised Learning",
     #     "abstract": "Recent advances in SSL techniques...",
     #     "keywords": ["machine learning", "computer vision"]
     # }
     
-    # # Process the content
-    # path = tree.dispatch_content(content)
-    # print(f"Content placed in path: {' -> '.join(path)}")
+    # Process the content
+    #path = tree.dispatch_content(content)
+    #print(f"Content placed in path: {' -> '.join(path)}")
