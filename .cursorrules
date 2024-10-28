@@ -1,0 +1,139 @@
+ 
+You are an AI assistant for the Tree Agent Knowledge System (TAKS) project.
+
+## Project Overview
+- **Project Name:** Tree Agent Knowledge System (TAKS)
+- **Objective:** Create a tree-based knowledge management system that organizes concepts hierarchically using Plain JSON (PJ) and Structured Computing Tree (SCT) formats.
+- **Workflow:**
+  - **Dispatch（分发）:** Identify the appropriate location for new content without performing updates.
+  - **Backpropagation（反溯）:** Update the tree by adding, deleting, merging, or rearranging nodes based on the content.
+
+## Technical Guidelines
+- **Programming Language:** Python 3.8+
+- **Code Practices:**
+  - Use type hints consistently.
+  - Follow Object-Oriented Programming (OOP) principles.
+  - Implement proper error handling and logging.
+  - Utilize `dataclasses` or `Pydantic` for data validation where appropriate.
+- **Version Control:** Ensure all changes are tracked and documented using Git.
+
+## Agent Implementation
+
+### Utilizing LangGraph for Agent Workflow
+- **LangGraph Documentation:** [LangGraph Docs](https://langchain-ai.github.io/langgraph/)
+- **Building Agents:**
+  - **Simple ReAct Agents:**
+    - Use the [prebuilt ReAct agent](https://langchain-ai.github.io/langgraph/how-tos/create-react-agent/) for straightforward tasks.
+  - **Complex Agents:**
+    - Implement custom workflows using LangGraph for stateful, multi-actor applications.
+    - Create a `langgraph.json` manifest file to configure agents for LangGraph Studio compatibility.
+- **Workflow Management:**
+  - **Subgraphs:** Modularize functionalities by creating subgraphs.
+  - **Branching:** Implement branches for parallel execution.
+  - **Map-Reduce:** Use map-reduce branches for distributed operations.
+  - **Recursion Control:** Properly set [recursion limits](https://langchain-ai.github.io/langgraph/how-tos/recursion-limit/#define-our-graph) to prevent excessive recursion in graphs.
+
+### Tool Integration with LangChain and LangGraph
+- **Prioritize Tool Nodes:**
+  - When tools are needed, prioritize using tool nodes for specific operations.
+- **Search Operations:**
+  - Use **Tavily** as the primary search tool. Include `tavily-python` in project dependencies.
+- **Structured Output:**
+  - Implement [structured output](https://python.langchain.com/v0.2/docs/how_to/structured_output/#the-with_structured_output-method) for compatible models to ensure consistent data formats.
+- **Agent Configuration:**
+  - Do not include `main` functions in agent files.
+  - Use `main.py` as the entry point for the application.
+
+## Available Tools & Frameworks
+- **LangChain/LangGraph:**
+  - Orchestrate agent workflows.
+  - Manage state and communication between agents.
+- **Camel.ai:**
+  - Facilitate role-playing agent interactions.
+  - Enhance complex dialogue management and task decomposition.
+- **AutoGen:**
+  - Support multi-agent conversations.
+  - Coordinate dynamic agent creation and task assignments.
+- **JSON Schema:**
+  - Validate the tree structure to ensure data integrity.
+
+## Code Structure Preferences
+1. **Tree Operations (`tree_operations.py`):**
+   - Maintain clear separation between PJ and SCT formats.
+   - Use descriptive method names for tree manipulations.
+   - Implement proper error handling for all operations.
+2. **Agent Modules:**
+   - Separate agent implementations into distinct modules.
+   - Define clear responsibilities and boundaries for each agent.
+3. **Entry Point:**
+   - Use `main.py` to initialize and run the application.
+4. **Documentation:**
+   - Include comprehensive docstrings and usage examples.
+   - Document complex operations and agent interactions.
+
+## Best Practices
+- **Documentation:**
+  - Clearly document all public interfaces and modules.
+  - Maintain an architecture overview in the system documentation.
+- **Testing:**
+  - Write unit tests for tree operations and agent behaviors.
+  - Implement integration tests for agent interactions and workflow executions.
+- **Logging:**
+  - Implement robust logging for debugging and auditing purposes.
+- **Performance Optimization:**
+  - Optimize for handling large tree structures.
+  - Implement caching mechanisms where appropriate.
+  - Use asynchronous operations for I/O-bound tasks.
+  - Monitor and manage memory usage effectively.
+- **Error Handling:**
+  - Gracefully handle agent failures, tree operation errors, and communication timeouts.
+  - Implement retry mechanisms and rollback strategies for recovery.
+  - Log error contexts for easier troubleshooting.
+
+## Agent Communication
+- **Structured Messages:**
+  - Use consistent and structured message formats for inter-agent communication.
+- **Reliability:**
+  - Implement retry patterns for failed communications.
+  - Handle timeout scenarios to prevent hanging processes.
+- **Validation:**
+  - Validate message formats to ensure data integrity.
+
+## Implementation Rules
+1. **Agent Configuration:**
+   - Define agent configurations in `langgraph.json`.
+   - Clearly outline agent boundaries and responsibilities.
+   - Use `async/await` for asynchronous agent communications.
+2. **Tree Operations:**
+   - Validate the tree against predefined JSON schemas.
+   - Maintain accurate parent-child relationships.
+   - Handle conflicts and ensure data consistency during updates.
+3. **File Structure:**
+   - Organize code into clear, maintainable modules.
+   - Keep `main.py` as the sole entry point for application execution.
+   - Avoid placing multiple main functions in agent files.
+
+## Error Handling & Recovery
+- **Error Boundaries:**
+  - Define clear boundaries for where and how errors are handled within agents and tree operations.
+- **Recovery Strategies:**
+  - Implement rollback mechanisms to revert failed operations.
+  - Use retry patterns for transient errors.
+  - Maintain comprehensive logs to capture error contexts and system states.
+
+## Documentation Requirements
+1. **Code Documentation:**
+   - Include clear docstrings for all classes, methods, and functions.
+   - Provide usage examples and explain error scenarios.
+2. **System Documentation:**
+   - Offer an architecture overview detailing agent interactions and tree operations.
+   - Document recovery procedures and error handling strategies.
+
+## Testing Guidelines
+1. **Unit Tests:**
+   - Test individual tree operations and agent behaviors.
+   - Cover error handling and edge cases.
+2. **Integration Tests:**
+   - Test interactions between multiple agents.
+   - Validate workflow executions and system recovery processes.
+   - Assess performance under various load conditions.
