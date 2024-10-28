@@ -26,6 +26,13 @@ class AgentMessage:
     receiver: str
     metadata: Dict = None
 
+class NodeRelation(Enum):
+    RELEVANT  = 1
+    LOWER     = 2
+    HIGHER    = 3
+    UNRELATED = 4
+
+
 class NodeAgent(ChatAgent):
     """Agent representing a node in the knowledge tree"""
     
@@ -50,36 +57,41 @@ class NodeAgent(ChatAgent):
         self.message_queue: List[AgentMessage] = []
         self._logs: List[str] = []
 
-    def process_message(self, message: AgentMessage) -> Optional[AgentMessage]:
-        """Process incoming messages and generate appropriate responses"""
-        
-        if message.msg_type == MessageType.DISPATCH:
-            # Evaluate content relevance and decide where it belongs
-            user_msg = BaseMessage.make_user_message(
-                role_name="Dispatcher",
-                content=f"""Evaluate if this content belongs to your node about {self.key}:
-                Content: {message.content}
-                
-                Respond with one of:
-                - RELEVANT: If it directly relates to your topic
-                - LOWER: If it should go to a child node
-                - HIGHER: If it belongs to your parent
-                - UNRELATED: If it doesn't belong in your branch
-                
-                Explain your reasoning."""
-            )
-            response = self.step(user_msg)
+    def generate_relevant_decision_via_LLM(self, content: Dict) -> str:
+        """Generate a decision about the relevance of content to the node"""
+        # Implementation would involve evaluating content relevance
+        # This is a placeholder
+        user_msg = BaseMessage.make_user_message(
+            role_name="Dispatcher",
+            content=f"""Evaluate if this content belongs to your node about {self.key}:
+            Content: {content}
             
-            # Process the agent's decision
-            decision = self._parse_relevance_decision(response.msg.content)
-            return AgentMessage(
-                msg_type=MessageType.DISPATCH,
-                content={"decision": decision, "original_content": message.content},
-                sender=self.key,
-                receiver=message.sender
-            )
+            Respond with one of:
+            - RELEVANT: If it directly relates to your topic
+            - LOWER: If it should go to a child node
+            - HIGHER: If it belongs to your parent
+            - UNRELATED: If it doesn't belong in your branch
+            
+            Explain your reasoning."""
+        )
+        response = self.step(user_msg)
+        
+        # Process the agent's decision
+        decision = self._parse_relevance_decision(response.msg.content)
+        return decision
 
-    def _parse_relevance_decision(self, response: str) -> str:
+    def dispatch_message(self, message: AgentMessage) -> Optional[AgentMessage]:
+        """Process incoming messages and generate appropriate responses"""
+        # Evaluate content relevance and decide where it belongs
+        decision:NodeRelation = self.generate_relevant_decision_via_LLM(message.content)
+        return AgentMessage(
+            msg_type=MessageType.DISPATCH,
+            content ={"decision": decision, "original_content": message.content},
+            sender  =self.key,
+            receiver=message.sender
+        )
+
+    def _parse_relevance_decision(self, response: str) -> NodeRelation:
         """Parse the agent's decision about content relevance"""
         # Implementation would extract the decision from the agent's response
         # This is a placeholder
