@@ -1,22 +1,28 @@
 import json
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
 from camel.agents import ChatAgent
 from camel.messages import BaseMessage
 from camel.types import RoleType
-from langgraph.graph import StateGraph, END
+import logging
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class MessageType(Enum):
-    DISPATCH = "dispatch"      # For content placement decisions
-    UPDATE = "update"         # For node content updates
-    MERGE = "merge"          # For merging related nodes
-    VALIDATE = "validate"    # For validating node relationships
-    QUERY = "query"          # For information retrieval
+    DISPATCH = "dispatch"
+    UPDATE = "update"
+    MERGE = "merge"
+    VALIDATE = "validate"
+    QUERY = "query"
+
+class NodeRelation(Enum):
+    RELEVANT = "relevant"
+    LOWER = "lower"
+    HIGHER = "higher"
+    UNRELATED = "unrelated"
 
 @dataclass
 class AgentMessage:
@@ -26,18 +32,8 @@ class AgentMessage:
     receiver: str
     metadata: Dict = None
 
-class NodeRelation(Enum):
-    RELEVANT  = 1
-    LOWER     = 2
-    HIGHER    = 3
-    UNRELATED = 4
-
-
 class NodeAgent(ChatAgent):
-    """Agent representing a node in the knowledge tree"""
-    
     def __init__(self, key: str, value: Any):
-        # Initialize the base agent with appropriate system message
         system_message = BaseMessage(
             role_name="KnowledgeNode",
             role_type=RoleType.ASSISTANT,
@@ -54,13 +50,11 @@ class NodeAgent(ChatAgent):
         self.value = value
         self.parent = None
         self.children = []
-        self.message_queue: List[AgentMessage] = []
+        self.content_pool: List[Dict] = []  # Store relevant content
         self._logs: List[str] = []
 
-    def generate_relevant_decision_via_LLM(self, content: Dict) -> str:
-        """Generate a decision about the relevance of content to the node"""
-        # Implementation would involve evaluating content relevance
-        # This is a placeholder
+    def generate_relevant_decision_via_LLM(self, content: Dict) -> NodeRelation:
+        """Generate a decision about content relevance using LLM"""
         user_msg = BaseMessage.make_user_message(
             role_name="Dispatcher",
             content=f"""Evaluate if this content belongs to your node about {self.key}:
@@ -75,73 +69,59 @@ class NodeAgent(ChatAgent):
             Explain your reasoning."""
         )
         response = self.step(user_msg)
-        
-        # Process the agent's decision
-        decision = self._parse_relevance_decision(response.msg.content)
-        return decision
+        return self._parse_relevance_decision(response.msg.content)
 
-    def dispatch_message(self, message: AgentMessage) -> Optional[AgentMessage]:
-        """Process incoming messages and generate appropriate responses"""
-        # Evaluate content relevance and decide where it belongs
-        decision:NodeRelation = self.generate_relevant_decision_via_LLM(message.content)
-        return AgentMessage(
-            msg_type=MessageType.DISPATCH,
-            content ={"decision": decision, "original_content": message.content},
-            sender  =self.key,
-            receiver=message.sender
-        )
+    def process_message(self, message: AgentMessage) -> Tuple[NodeRelation, Optional[AgentMessage]]:
+        """Process incoming messages and return decision and optional response"""
+        logger.info(f"Node {self.key} processing message of type {message.msg_type}")
+        
+        if message.msg_type == MessageType.DISPATCH:
+            decision = self.generate_relevant_decision_via_LLM(message.content)
+            return decision, AgentMessage(
+                msg_type=MessageType.DISPATCH,
+                content={"decision": decision, "original_content": message.content},
+                sender=self.key,
+                receiver=message.sender
+            )
+        
+        elif message.msg_type == MessageType.UPDATE:
+            self.content_pool.append(message.content)
+            logger.info(f"Node {self.key} updated with new content")
+            return NodeRelation.RELEVANT, None
+
+        return NodeRelation.UNRELATED, None
 
     def _parse_relevance_decision(self, response: str) -> NodeRelation:
-        """Parse the agent's decision about content relevance"""
-        # Implementation would extract the decision from the agent's response
-        # This is a placeholder
-        return "RELEVANT"
+        """Parse LLM response to determine content relevance"""
+        response = response.upper()
+        if "RELEVANT" in response:
+            return NodeRelation.RELEVANT
+        elif "LOWER" in response:
+            return NodeRelation.LOWER
+        elif "HIGHER" in response:
+            return NodeRelation.HIGHER
+        return NodeRelation.UNRELATED
 
     def add_child(self, child: 'NodeAgent') -> None:
-        """Add a child agent node"""
+        """Add a child node"""
         child.parent = self
         self.children.append(child)
-        
-        # Notify both nodes of the relationship
-        self._handle_relationship_update(child, "add")
+        logger.info(f"Added child {child.key} to node {self.key}")
+        self._logs.append(f"Added child: {child.key}")
 
-    def _handle_relationship_update(self, other_node: 'NodeAgent', action: str) -> None:
-        """Handle updates to node relationships"""
-        if action == "add":
-            message = f"New child node added: {other_node.key}"
-        elif action == "remove":
-            message = f"Child node removed: {other_node.key}"
-        self._logs.append(message)
-
-class TreeGraph(StateGraph):
-    """Manages the flow of messages between node agents"""
+class KnowledgeTree:
+    """Manages the tree structure and content routing"""
     
     def __init__(self):
-        super().__init__()
         self.root = NodeAgent("root", {})
-        self.node_path_map = {}
+        self._logs: List[str] = []
 
-    def build_graph(self):
-        """Configure the message passing graph"""
-        
-        # Define the dispatch node for content placement
-        self.add_node("dispatch", self._dispatch_content)
-        
-        # Define the update node for modifying tree structure
-        self.add_node("update", self._update_tree)
-        
-        # Add edges for message flow
-        self.add_edge("dispatch", "update")
-        self.add_edge("update", END)
-
-    def _dispatch_content(self, state: Dict) -> Dict:
-        """Handle content dispatch through the tree"""
-        content = state["content"]
+    def dispatch_content(self, content: Dict) -> List[str]:
+        """Route content to appropriate node in the tree"""
         current_node = self.root
         path = []
         
         while True:
-            # Create dispatch message
             message = AgentMessage(
                 msg_type=MessageType.DISPATCH,
                 content=content,
@@ -149,68 +129,63 @@ class TreeGraph(StateGraph):
                 receiver=current_node.key
             )
             
-            # Get node's decision
-            response = current_node.process_message(message)
-            decision = response.content["decision"]
+            decision, _ = current_node.process_message(message)
+            path.append(current_node.key)
             
-            if decision == "RELEVANT":
-                path.append(current_node.key)
+            if decision == NodeRelation.RELEVANT:
+                self._update_node_content(current_node, content)
                 break
-            elif decision == "LOWER" and current_node.children:
-                # Continue search in children
-                current_node = current_node.children[0]  # Need better child selection
-                path.append(current_node.key)
+            elif decision == NodeRelation.LOWER and current_node.children:
+                # Select most appropriate child node
+                current_node = self._select_best_child(current_node, content)
             else:
+                # Create new node if content doesn't fit existing structure
+                if decision == NodeRelation.LOWER:
+                    new_node = self._create_new_node(content)
+                    current_node.add_child(new_node)
+                    current_node = new_node
+                    path.append(new_node.key)
                 break
         
-        return {"path": path, "content": content}
+        return path
 
-    def _update_tree(self, state: Dict) -> Dict:
-        """Handle tree updates based on dispatch results"""
-        path = state["path"]
-        content = state["content"]
+    def _update_node_content(self, node: NodeAgent, content: Dict) -> None:
+        """Update node with new content"""
+        update_msg = AgentMessage(
+            msg_type=MessageType.UPDATE,
+            content=content,
+            sender="updater",
+            receiver=node.key
+        )
+        node.process_message(update_msg)
+
+    def _select_best_child(self, node: NodeAgent, content: Dict) -> NodeAgent:
+        """Select the most appropriate child node for content"""
+        best_child = node.children[0]
+        best_score = float('-inf')
         
-        if path:
-            target_node = self.get_node(path)
-            if target_node:
-                # Update node with new content
-                update_msg = AgentMessage(
-                    msg_type=MessageType.UPDATE,
-                    content=content,
-                    sender="updater",
-                    receiver=target_node.key
-                )
-                target_node.process_message(update_msg)
-        
-        return {"status": "complete"}
+        for child in node.children:
+            # Use LLM to score relevance to each child
+            message = AgentMessage(
+                msg_type=MessageType.QUERY,
+                content=content,
+                sender="selector",
+                receiver=child.key
+            )
+            decision, _ = child.process_message(message)
+            if decision == NodeRelation.RELEVANT:
+                return child
+            
+        return best_child
 
-    def get_node(self, path: List[str]) -> Optional[NodeAgent]:
-        """Get a node from the tree given a path"""
-        current = self.root
-        for key in path:
-            found = False
-            for child in current.children:
-                if child.key == key:
-                    current = child
-                    found = True
-                    break
-            if not found:
-                return None
-        return current
-
-class Tree:
-    def __init__(self):
-        self.graph = TreeGraph()
-        self.graph.build_graph()
-
-    def process_content(self, content: Dict):
-        """Process new content through the agent graph"""
-        app = self.graph.compile()
-        result = app.invoke({"content": content})
-        return result
+    def _create_new_node(self, content: Dict) -> NodeAgent:
+        """Create a new node based on content"""
+        # Extract key concepts from content using LLM
+        key = content.get("title", "New Node")  # Simplified for example
+        return NodeAgent(key, content)
 
     @classmethod
-    def load_from_file(cls, file_path: str) -> 'Tree':
+    def load_from_file(cls, file_path: str) -> 'KnowledgeTree':
         """Load tree from JSON file"""
         with open(file_path, 'r') as file:
             data = json.load(file)
@@ -219,28 +194,39 @@ class Tree:
         return tree
 
     def _build_tree_from_dict(self, data: Dict) -> None:
-        """Build the agent tree from dictionary data"""
-        def build_node(node_data: Dict, parent: NodeAgent):
-            for key, value in node_data.items():
-                if isinstance(value, dict):
-                    node = NodeAgent(key, value)
-                    parent.add_child(node)
-                    build_node(value, node)
+        """Build the tree structure from dictionary data"""
+        def append_node_data_to_parent(node_data: Dict, parent: NodeAgent):
+            keys = node_data.keys()
+            metadata_allowed_keys = {"concept_key_word", "concept_abstract", "concept_represents",
+                                     "title", "area", "idea_paradigm"}
+            metadata_keys = [k for k in keys if k in metadata_allowed_keys]
+            concept_keys  = [k for k in keys if k not in metadata_allowed_keys]
+            
+            assert len(concept_keys)==1, f"concept_keys: {concept_keys}"
+            metadata = {k:node_data.pop(k) for k in metadata_keys}
+            node_title=metadata.get("concept_key_word", None) or metadata.get("title", None)
 
-        build_node(data, self.graph.root)
+            node = NodeAgent(key=node_title,value=metadata)
+            
+            parent.add_child(node)
+
+            for concept_data in node_data.get(concept_keys[0], []):
+                append_node_data_to_parent(concept_data, node)
+                
+        append_node_data_to_parent(data, self.root)
 
 # Example usage
 if __name__ == "__main__":
     # Load the tree
-    tree = Tree.load_from_file("TreeKnowledge.example.json")
+    tree = KnowledgeTree.load_from_file("TreeKnowledge.example.json")
     
-    # Example content to process
-    content = {
-        "title": "New Research in Self-Supervised Learning",
-        "abstract": "Recent advances in SSL techniques...",
-        "keywords": ["machine learning", "computer vision"]
-    }
+    # # Example content to process
+    # content = {
+    #     "title": "New Research in Self-Supervised Learning",
+    #     "abstract": "Recent advances in SSL techniques...",
+    #     "keywords": ["machine learning", "computer vision"]
+    # }
     
-    # Process the content
-    result = tree.process_content(content)
-    print(f"Content processed: {result}")
+    # # Process the content
+    # path = tree.dispatch_content(content)
+    # print(f"Content placed in path: {' -> '.join(path)}")
