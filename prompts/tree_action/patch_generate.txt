@@ -1,0 +1,274 @@
+# Task:
+
+You are tasked with updating the existing Literature Research Report (LRR) by integrating high-level concepts from new research paper mind maps provided. Your goal is to refine and expand the LRR by incorporating these new concepts into the existing framework, enhancing overall conceptual understanding while maintaining coherence and logical flow.
+
+---
+
+### Important Guidelines:
+
+- Focus on High-Level Concepts and Themes:
+
+- Avoid Mentioning Specific Papers:
+
+- Output Modifications Only:
+  - Provide the updates in `jsonpatch` format, specifying only the parts of the LRR that need to be modified.
+  - Include a `reason` key in each patch operation to explain the purpose of the modification.
+  - Do not output the entire updated report.
+
+---
+
+#### Base Requirements for the LRR:
+
+- Synthesize High-Level Concepts:
+  - Focus on identifying and elaborating on high-level concepts and overarching themes.
+  - Provide comprehensive explanations of each concept, including background information, core principles, and their interconnections.
+- Maintain Hierarchical Structure:
+
+  - Organize concepts hierarchically, using appropriate nesting of sub-concepts.
+  - Ensure logical flow and coherence between concepts and sub-concepts.
+- Critical Analysis and Clarity:
+  - Offer critical evaluations and highlight differing perspectives where relevant.
+  - Use clear and precise language to explain complex concepts.
+- Formatting:
+  - Use the specified JSON-tree format for concepts and ensure the output is compatible with the `jsonpatch` Python package.
+  - Include necessary keys as defined in the original LRR, such as `concept_key_word`, `concept_abstract`, `concept_represents`, and `sub_concept_{level}`.
+
+#### Base  Definitions for the LRR:
+
+- "idea_paradigm": The overarching theme or perspective that frames and guides the focus of the report. It serves as a lens through which relevant concepts are selected and organized from the larger knowledge graph, projecting them into a coherent, tree-like structure within the JSON-Tree Format.
+
+- "concept_key_word": The synthesized high-level concept that abstracts and unifies the main common themes among its sub-concepts. It serves as a general category or umbrella term that encapsulates the essence of its child concepts.
+
+- "concept_abstract": A concise summary that introduces and explains the reasoning behind selecting the "concept_key_word" as the overarching concept for its sub-concepts. It provides an overview of how the sub-concepts are interconnected and why they are grouped together.
+
+- "concept_represents": Lists identifiers (such as paper numbers) of source papers that are directly related to the concept at the same level of abstraction.
+
+---
+
+### Patch Operations:
+
+Use the following operations in your `jsonpatch` format:
+
+- Add: Add a new node or subtree under an existing node.
+- Delete: Delete a node; if it has children, reassign them to a suitable parent.
+- Merge: Combine two or more nodes into a new node, moving all children under it.
+- Move: Reassign a node to a different parent node.
+- Replace: Update the content or attributes of a node.
+- Split: Split a node into multiple nodes, distributing its children among them.
+- Rename: Change the `concept_key_word` of a node.
+
+Reason Key:
+
+- Include a `"reason"` key in each patch operation to briefly explain why the operation is being performed. This aids in understanding the purpose behind each modification.
+
+## Detailed Format Requirements for Each Operation
+
+##### 1. Add
+
+- Description: Add a new node or subtree under an existing parent node.  Usually, it happens for  a new concept complements or elaborates on an existing high-level concept, integrate it as an expansion or sub-point. Make sure that the addition enhances the depth and breadth of the existing concept.
+
+- Parameters:
+
+  - `operation`: `"Add"`
+  - `parent_concept_key_word`: The `concept_key_word` of the parent node where the new node will be added.
+  - `new_node`: An object representing the new node, new node should followed same instruction in @LRR_Prompt.md which is a nested concept format
+
+- Format:
+
+  ```json
+  {
+    "operation": "Add",
+    "parent_concept_key_word": "ParentNodeKeyWord",
+    "reason": "[Please fill here why we think it is necessary to add a new node]",
+    "new_node": {
+              "concept_key_word": "Self-Supervised Learning (SSL) Techniques",
+              "concept_abstract": ".....................",
+              "concept_represents": [
+                  11, 30, 36, 64, 80
+              ],
+              "sub_concept_1": [
+                  {
+                      "concept_key_word": "Contrastive Learning",
+                      "concept_abstract": "........",
+                      "concept_represents": [
+                          11, 30
+                      ],
+                      "sub_concept_2": [
+                          {
+                              "concept_key_word": "Consistency-Based SSL",
+                              "concept_abstract": "....",
+                              "concept_represents": [30],
+                              "sub_concept_3": []
+                          }
+                      ]
+                  }
+              ]
+          }
+  }
+  ```
+
+##### 2. Delete
+
+- Description: Delete a node. If the node has children, reassign them to a suitable parent.
+
+- Limitation: Usually, we delete a node/concept due to such concept become redundancy or replicated.
+
+- Parameters:
+
+  - `operation`: `"Delete"`
+  - `target_concept_key_word`: The `concept_key_word` of the node to be deleted.
+  - `reassign_children_to` (optional): The `concept_key_word` of the node to which the children will be reassigned. If omitted, children will be reassigned to the deleted node's parent.
+
+- Format:
+
+  ```json
+  {
+    "operation": "Delete",
+    "reason": "[Please fill here why we think it is necessary to delete a node]",
+    "target_concept_key_word": "NodeToDeleteKeyWord",
+    "reassign_children_to": "NewParentKeyWord" // Optional
+  }
+  ```
+
+##### 3. Merge
+
+- Description: Merge two or more nodes into a new node, moving their children under it. Usually, we use the `merge` operation to unify concepts for a more advanced or comprehensive understanding. That is, merge concepts that are closely related to unify similar themes.
+
+- Parameters:
+
+  - `operation`: `"Merge"`
+  - `source_nodes`: An array of `concept_key_word`s of the nodes to be merged.
+  - `new_concept_key_word`: The `concept_key_word` for the new merged node.
+  - `new_content` (optional): The content for the new merged node.
+
+- Format:
+
+  ```json
+  {
+    "operation": "Merge",
+    "source_nodes": ["Node1KeyWord", "Node2KeyWord"],
+    "new_concept_key_word": "MergedNodeKeyWord",
+    "new_content": "Content for the merged node" // Optional
+  }
+  ```
+
+##### 4. Move
+
+- Description: Move a node to a different parent node.
+
+- Parameters:
+
+  - `operation`: `"Move"`
+  - `target_concept_key_word`: The `concept_key_word` of the node to move.
+  - `new_parent_concept_key_word`: The `concept_key_word` of the new parent node.
+
+- Format:
+
+  ```json
+  {
+    "operation": "Move",
+    "target_concept_key_word": "NodeToMoveKeyWord",
+    "new_parent_concept_key_word": "NewParentKeyWord"
+  }
+  ```
+
+##### 5. Replace
+
+- Description: Update the content or attributes of a node. Enhance existing concepts after adding depth or incorporating new insights. Refine concept abstracts to reflect recent developments.
+
+- Parameters:
+
+  - `operation`: `"Replace"`
+  - `target_concept_key_word`: The `concept_key_word` of the node to be updated.
+  - `new_content`: The new content or updated attributes for the node.
+
+- Format:
+
+  ```json
+  {
+    "operation": "Replace",
+    "target_concept_key_word": "NodeToUpdateKeyWord",
+    "new_content": "Updated content for the node"
+  }
+  ```
+
+##### 6. Split
+
+- Description: Split a node into multiple nodes, distributing its content and children among them. If an existing high-level concept is too broad, use the `split` operation to divide it into more detailed sub-concepts.
+
+- Parameters:
+
+  - `operation`: `"Split"`
+  - `target_concept_key_word`: The `concept_key_word` of the node to split.
+  - `new_nodes`: An array of objects representing the new nodes, each with its own `concept_key_word`, `content`, and `children`.
+
+- Format:
+
+  ```json
+  {
+    "operation": "Split",
+    "target_concept_key_word": "NodeToSplitKeyWord",
+    "new_nodes": [
+      {
+        "concept_key_word": "NewNode1KeyWord",
+        "content": "Content for new node 1",
+        "children": [ ... ] // Optional
+      },
+      {
+        "concept_key_word": "NewNode2KeyWord",
+        "content": "Content for new node 2",
+        "children": [ ... ] // Optional
+      }
+      // More new nodes if necessary
+    ]
+  }
+  ```
+
+##### 7. Rename
+
+- Description: Change the `concept_key_word` of a node.
+
+- Parameters:
+
+  - `operation`: `"Rename"`
+  - `old_concept_key_word`: The current `concept_key_word` of the node.
+  - `new_concept_key_word`: The new `concept_key_word` for the node.
+
+- Format:
+
+  ```json
+  {
+    "operation": "Rename",
+    "old_concept_key_word": "OldNodeKeyWord",
+    "new_concept_key_word": "NewNodeKeyWord"
+  }
+  ```
+
+---
+
+#### Content Guidelines:
+
+- Emphasize High-Level Concepts:
+
+  - Focus on high-level concepts and overarching themes.
+    - Provide comprehensive explanations, including definitions and interconnections.
+- Clarity and Precision:
+
+  - Use clear and precise language to explain complex concepts.
+    - Avoid low-level details unless essential for understanding.
+- Critical Analysis:
+
+  - Offer critical evaluations where appropriate.
+    - Highlight differing perspectives or debates within the literature.
+- Consistency and Coherence:
+
+  - Maintain the existing writing style and terminology.
+    - Ensure logical flow between concepts and sections.
+- No Specific Paper References:
+
+  - Do not mention or allude to specific papers or authors.
+    - Present content as a cohesive synthesis of the literature.
+----
+## Final Instructions:
+- Please control the frequency for each operation, usually we dont want to see too many add operation.
+"""
