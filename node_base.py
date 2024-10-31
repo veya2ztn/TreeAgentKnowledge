@@ -21,6 +21,7 @@ class Node:
     def children_keys(self):
         return [child.key for child in self.children]
     
+    
     @property
     def concept_abstract(self):
         return self.value.get("concept_abstract", "") or self.value.get("scheme", "") or self.value.get("idea_paradigm", "") 
@@ -73,7 +74,7 @@ Sub Concepts:
         for child in self.children:
             if child.key == key:
                 return child
-        return None
+        raise ValueError(f"Child with key {key} not found, available keys: {self.children_keys}")
 
     @classmethod
     def load_from_dict(cls, data: Dict) -> Node:

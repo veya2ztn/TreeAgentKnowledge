@@ -120,6 +120,13 @@ For content at current level:
 
 """
 
+class PROMPT_for_concept_relevance_batch:
+    @staticmethod
+    def format(current_node_snapshot: str, new_incoming_content: List[str], children_keys: List[str]) -> str:
+        return f"""
+"""
+
+
 if __name__ == "__main__":
     # Example usage
     example_prompt = PROMPT_for_concept_relevance.format(

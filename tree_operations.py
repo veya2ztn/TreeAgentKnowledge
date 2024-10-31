@@ -13,7 +13,7 @@ from numpy import isin
 from pydantic import BaseModel, Field
 from typing import Dict, List, Optional, Set, Literal
 # Set up logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger(__name__)
 
 from prompts.node_action.node_action import *
@@ -126,8 +126,6 @@ class NodeAgent(ChatAgent,NodeStructure):
         #     )
         return decision
     
-
-
     def modify_the_node_information_via_content(self) -> None:
         """Modify the node information via content"""
         if len(self.content_pool) == 0:
@@ -187,7 +185,7 @@ class NodeAgent(ChatAgent,NodeStructure):
             self._execute_merge_action(action_decision)
         elif isinstance(action_decision, UpdateAction):
             self._execute_update_action(action_decision)
-
+        print(f"<- Action: {action_decision.action} at {self.key}")
         # Clear processed content
         self.content_pool = []
 
@@ -218,7 +216,6 @@ class NodeAgent(ChatAgent,NodeStructure):
         self.value['concept_abstract'] = self_update_pool['new_concept_abstract']
         self.value['concept_key_word'] = self_update_pool['new_concept_key_word']
 
-   
     def _execute_delete_action(self, details: Dict) -> None:
         """Delete specified child nodes"""
         raise NotImplementedError("This method should be implemented by the subclass")
@@ -310,12 +307,12 @@ class NodeTree(NodeAgent):
         
         while True:
             decision:DispatchDecision = current_node.make_dispatch_decision(content)
-            print(decision)
+            #print(decision)
             path.append(current_node.key)
             if decision.decision == RelevanceCategory.RELEVANT:
                 self._update_node_candidate_content(current_node, content)
                 break
-            elif decision.decision == RelevanceCategory.LOWER and current_node.children:
+            elif decision.decision == RelevanceCategory.LOWER and current_node.children and decision.next_position in set(current_node.children_keys):
                 # Select most appropriate child node
                 # current_node = self._select_best_child(current_node, content)
                 current_node = current_node.get_child_via_key(decision.next_position)
@@ -333,7 +330,7 @@ class NodeTree(NodeAgent):
                     # current_node = new_node
                     path.append("New Child")
                 break
-        
+        print("-> "+ " -> ".join(path))
         return path
 
     def _update_node_candidate_content(self, node: NodeAgent, content: Dict) -> None:

@@ -219,5 +219,129 @@ Please analyze the current node information and new content carefully to determi
 
 """
 
+example_batch_add_action_1= AddAction(
+    action="ADD",
+    details=AddActionDetails(
+        new_concept_key_word="Neural Architectures",
+        new_concept_abstract="Fundamental patterns and structures in neural network design, including layering strategies and connectivity patterns"
+    ),
+    reason="Represents a distinct structural aspect of neural networks that warrants its own sub-concept"
+)
+
+example_batch_add_action_2 = AddAction(
+    action="ADD",
+    details=AddActionDetails(
+        new_concept_key_word="Training Optimization",
+        new_concept_abstract="Methods and techniques for improving neural network training efficiency and effectiveness"
+    ),
+    reason="Describes a specific methodological category with unique approaches and considerations"
+)
+
+example_batch_update_action_1 = UpdateAction(
+    action="UPDATE",
+    details=UpdateActionDetails(),
+    reason="Provides practical application examples that enhance understanding of the existing concept without introducing new sub-concepts"
+)
+
+class PROMT_for_batch_action_decision_make:
+    """
+    This class generates prompts for making decisions on multiple content entries simultaneously,
+    returning individual action decisions for each entry while only querying the LLM once.
+    """
+    @staticmethod
+    def format(current_node_snapshot: str, extra_contents: list[str]) -> str:
+        # Validate input
+        if not 3 <= len(extra_contents) <= 5:
+            raise ValueError("Batch processing requires 3-5 content entries")
+
+        # Generate numbered content sections
+        content_sections = "\n\n".join([
+            f"Content Entry #{i+1}:\n{content}"
+            for i, content in enumerate(extra_contents)
+        ])
+
+        return f"""# Batch Analysis Task
+
+You are analyzing a knowledge tree node to determine necessary actions for multiple pieces of new content, ensuring proper maintenance and enhancement of the hierarchical knowledge structure.
+
+**Objective:**
+Analyze multiple content entries simultaneously and determine the most appropriate action for each, maintaining consistency across decisions while preserving the knowledge tree's hierarchical integrity.
+
+### Current Node Information:
+{current_node_snapshot}
+
+### New Content Entries to Analyze:
+{content_sections}
+
+### Available Actions:
+1. **[UPDATE]** - Enhance existing concept
+2. **[ADD]** - Create new sub-concept
+
+### Action Templates:
+
+For [UPDATE]:
+```
+{template_update_action.json_snapshot()}
+```
+
+For [ADD]:
+```
+{template_add_action.json_snapshot()}
+```
+
+### Batch Processing Guidelines:
+
+1. **Consistency Analysis:**
+   - Look for patterns across content entries
+   - Identify related or overlapping information
+   - Ensure consistent abstraction levels in decisions
+
+2. **Relationship Consideration:**
+   - Consider how multiple additions might relate to each other
+   - Evaluate potential connections between new sub-concepts
+   - Maintain logical grouping of related concepts
+
+### Response Format:
+
+Provide your analysis as a list of individual action decisions, one for each content entry. Each decision should follow the exact same format as the single-entry version:
+
+```json
+[
+    {template_update_action.json_snapshot()},
+    {template_add_action.json_snapshot()},
+    {template_update_action.json_snapshot()}
+]
+```
+
+### Example Batch Analysis:
+
+Consider these entries about Machine Learning:
+
+1. Content about neural network architectures
+2. Content about training optimization techniques
+3. Content about specific applications
+
+Example Response:
+```json
+[
+    {example_batch_add_action_1.json_snapshot()},
+    {example_batch_add_action_2.json_snapshot()},
+    {example_batch_update_action_1.json_snapshot()}
+]
+```
+
+Please analyze all content entries and provide a list of individual action decisions following the format above. Each decision should be independent and follow the same format as the single-entry version, while considering the context of other entries for consistency.
+"""
+
 if __name__ == "__main__":
+    # Example usage of both prompts
     print(PROMT_for_action_decision_make.format(current_node_snapshot="", extra_content_snapshot=""))
+    print("\nBatch version example:")
+    print(PROMT_for_batch_action_decision_make.format(
+        current_node_snapshot="",
+        extra_contents=[
+            "Content 1",
+            "Content 2",
+            "Content 3"
+        ]
+    ))
