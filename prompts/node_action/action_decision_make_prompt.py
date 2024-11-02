@@ -217,6 +217,10 @@ Determine the most appropriate action to integrate the new content into the know
 
 Please analyze the current node information and new content carefully to determine the most appropriate action based on these guidelines.
 
+### Final Output Format
+- Provide only the JSON object with the updated concept key word and abstract as shown above. Do not include any additional text, explanations, or formatting.
+- Ensure that the response strictly adheres to the specified format to facilitate automated parsing and integration into the knowledge tree system.
+
 """
 
 example_batch_add_action_1= AddAction(
@@ -243,7 +247,7 @@ example_batch_update_action_1 = UpdateAction(
     reason="Provides practical application examples that enhance understanding of the existing concept without introducing new sub-concepts"
 )
 
-class PROMT_for_batch_action_decision_make:
+class PROMT_for_batch_action_decision_make__________________________:
     """
     This class generates prompts for making decisions on multiple content entries simultaneously,
     returning individual action decisions for each entry while only querying the LLM once.
@@ -266,12 +270,6 @@ You are analyzing a knowledge tree node to determine necessary actions for multi
 
 **Objective:**
 Analyze multiple content entries simultaneously and determine the most appropriate action for each, maintaining consistency across decisions while preserving the knowledge tree's hierarchical integrity.
-
-### Current Node Information:
-{current_node_snapshot}
-
-### New Content Entries to Analyze:
-{content_sections}
 
 ### Available Actions:
 1. **[UPDATE]** - Enhance existing concept
@@ -330,7 +328,14 @@ Example Response:
 ]
 ```
 
+### Current Node Information:
+{current_node_snapshot}
+
+### New Content Entries to Analyze:
+{content_sections}
+
 Please analyze all content entries and provide a list of individual action decisions following the format above. Each decision should be independent and follow the same format as the single-entry version, while considering the context of other entries for consistency.
+
 """
 
 if __name__ == "__main__":

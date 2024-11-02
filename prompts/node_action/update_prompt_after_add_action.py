@@ -8,11 +8,12 @@ from node_base import NodeStructure
 from dataclasses import dataclass
 from typing import Dict, Any
 import json
+from pydantic import BaseModel, Field,ConfigDict
 
-@dataclass
-class Template_update_after_add_action:
-    new_concept_key_word: str = "New Key Word"
-    new_concept_abstract: str = "New updated abstract."
+class Template_update_after_add_action(BaseModel):
+    new_concept_key_word: str = Field(default="New Key Word", description="Key word for the new concept")
+    new_concept_abstract: str = Field(default="New updated abstract.", description="Abstract description of the new concept")
+    reason: str = Field(default="Reason for the update", description="Reasoning for the update")
 
     @staticmethod
     def load_from_dict(dict: Dict[str, Any]):
@@ -76,7 +77,8 @@ example_1_after  = NodeStructure.load_from_dict({
 
 example_1_patch  = Template_update_after_add_action.load_from_dict({
     "new_concept_key_word": "Machine Learning",
-    "new_concept_abstract": "Machine Learning involves algorithms that enable computers to learn from and make decisions based on data, including supervised learning, unsupervised learning, and reinforcement learning."
+    "new_concept_abstract": "Machine Learning involves algorithms that enable computers to learn from and make decisions based on data, including supervised learning, unsupervised learning, and reinforcement learning.",
+    "reason": "[Add your reason for this operation here]"
 })
 
 # Example 2
@@ -123,7 +125,8 @@ example_2_after  = NodeStructure.load_from_dict({
 
 example_2_patch  = Template_update_after_add_action.load_from_dict({
     "new_concept_key_word": "Data and Predictive Analytics",
-    "new_concept_abstract": "Data Analysis involves inspecting, cleansing, transforming, and modeling data to discover useful information and support decision-making. This includes descriptive analytics, predictive analytics, and other advanced techniques to enhance the decision-making process."
+    "new_concept_abstract": "Data Analysis involves inspecting, cleansing, transforming, and modeling data to discover useful information and support decision-making. This includes descriptive analytics, predictive analytics, and other advanced techniques to enhance the decision-making process.",
+    "reason": "[Add your reason for this operation here]"
 })
 
 # Example 3
@@ -182,7 +185,8 @@ example_3_after  = NodeStructure.load_from_dict({
 
 example_3_patch  = Template_update_after_add_action.load_from_dict({
     "new_concept_key_word": "Management Practices",
-    "new_concept_abstract": "Project Management involves planning, executing, and finalizing projects, ensuring they are completed on time and within budget. This includes various management practices such as Agile Methodology, Waterfall Model, and Lean Management to optimize efficiency and effectiveness."
+    "new_concept_abstract": "Project Management involves planning, executing, and finalizing projects, ensuring they are completed on time and within budget. This includes various management practices such as Agile Methodology, Waterfall Model, and Lean Management to optimize efficiency and effectiveness.",
+    "reason": "[Add your reason for this operation here]"
 })
 
 class PROMT_after_add_action:
@@ -207,11 +211,6 @@ class PROMT_after_add_action:
 - Concept Description
 - Children
 
-### Current Node Information
-{current_node_snapshot}
-
-### New Child Node Information
-{new_node_snapshot}
 
 ### Instructions
 Based on the addition of the new child node, update the current node's concept keyword or concept abstract to better reflect the expanded knowledge structure. Ensure that the updated information maintains coherence and logical flow with the new child node.
@@ -265,11 +264,20 @@ Based on the addition of the new child node, update the current node's concept k
 ```
 
 
+
+### Current Node Information
+{current_node_snapshot}
+
+### New Child/Children Node Information
+{new_node_snapshot}
+
 ### Final Output Format
 Provide only the JSON object with the updated concept key word and abstract as shown above. Do not include any additional text, explanations, or formatting.
 
 Ensure that the response strictly adheres to the specified format to facilitate automated parsing and integration into the knowledge tree system.
+
 """
+
 
 if __name__ == "__main__":
     print(PROMT_after_add_action.format(example_1_before.text_snapshot(), example_1_add.text_snapshot()))

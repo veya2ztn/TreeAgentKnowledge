@@ -8,11 +8,13 @@ from node_base import NodeStructure
 from dataclasses import dataclass
 from typing import Dict, Any
 import json
+from pydantic import BaseModel, Field,ConfigDict
 
-@dataclass
-class Template_update_after_update_action:
-    new_concept_key_word: str = "Updated Key Word"
-    new_concept_abstract: str = "Updated abstract incorporating new information."
+
+class Template_update_after_update_action(BaseModel):
+    new_concept_key_word: str = Field(default="New Key Word", description="Key word for the new concept")
+    new_concept_abstract: str = Field(default="New updated abstract.", description="Abstract description of the new concept")
+    reason: str = Field(default="Reason for the update", description="Reasoning for the update")
 
     @staticmethod
     def load_from_dict(dict: Dict[str, Any]):
@@ -35,7 +37,8 @@ Neural networks are computational models inspired by the human brain's structure
 
 example_1_after = Template_update_after_update_action.load_from_dict({
     "new_concept_key_word": "Neural Networks",
-    "new_concept_abstract": "Neural networks are computational models inspired by the human brain's structure and function, consisting of interconnected nodes organized in layers. These systems form the backbone of deep learning, enabling breakthroughs in computer vision, natural language processing, and other AI applications through pattern learning."
+    "new_concept_abstract": "Neural networks are computational models inspired by the human brain's structure and function, consisting of interconnected nodes organized in layers. These systems form the backbone of deep learning, enabling breakthroughs in computer vision, natural language processing, and other AI applications through pattern learning.",
+    "reason": "[Please provide a detailed explanation of the new content and how it relates to the current node's concept.]"
 })
 
 # Example 2: Refining and clarifying existing knowledge
@@ -52,7 +55,8 @@ Cloud computing represents a paradigm shift in IT infrastructure, offering on-de
 
 example_2_after = Template_update_after_update_action.load_from_dict({
     "new_concept_key_word": "Cloud Computing",
-    "new_concept_abstract": "Cloud computing is a technology paradigm that delivers on-demand computing resources (servers, storage, databases, networking, software, and analytics) over the internet. It features pay-as-you-go pricing and eliminates direct infrastructure management, providing scalable and cost-effective solutions for businesses."
+    "new_concept_abstract": "Cloud computing is a technology paradigm that delivers on-demand computing resources (servers, storage, databases, networking, software, and analytics) over the internet. It features pay-as-you-go pricing and eliminates direct infrastructure management, providing scalable and cost-effective solutions for businesses.",
+    "reason": "[Please provide a detailed explanation of the new content and how it relates to the current node's concept.]"
 })
 
 # Example 3: Correcting and updating outdated information
@@ -69,7 +73,8 @@ Quantum computing harnesses quantum mechanical phenomena such as superposition a
 
 example_3_after = Template_update_after_update_action.load_from_dict({
     "new_concept_key_word": "Quantum Computing",
-    "new_concept_abstract": "Quantum computing leverages quantum mechanical phenomena like superposition and entanglement to process information using qubits, which can exist in multiple states simultaneously. This technology enables exponentially faster computation for specific problems in cryptography, drug discovery, and optimization compared to classical computers."
+    "new_concept_abstract": "Quantum computing leverages quantum mechanical phenomena like superposition and entanglement to process information using qubits, which can exist in multiple states simultaneously. This technology enables exponentially faster computation for specific problems in cryptography, drug discovery, and optimization compared to classical computers.",
+    "reason": "[Please provide a detailed explanation of the new content and how it relates to the current node's concept.]"
 })
 
 class PROMPT_after_update_action:
@@ -81,18 +86,11 @@ class PROMPT_after_update_action:
         return f"""You are tasked with updating the concept information for a knowledge tree node in the Tree Agent Knowledge System (TAKS) based on new content.
 
 ### Context
-
 **Project Description: Tree Agent Knowledge System**
 - **Objective:** Maintain and update a tree-based knowledge management system with accurate and comprehensive information.
 
 **Current Task:**
 - Update the node's concept information based on new, more detailed or updated content while maintaining consistency and accuracy.
-
-### Current Node Information
-{current_node_snapshot}
-
-### New Content to Incorporate
-{new_content}
 
 ### Instructions
 Update the node's concept keyword and abstract based on the new content provided. The update should:
@@ -148,6 +146,12 @@ Update the node's concept keyword and abstract based on the new content provided
 ```
 {example_3_after.json_snapshot()}
 ```
+
+### Current Node Information
+{current_node_snapshot}
+
+### New Content to Incorporate
+{new_content}
 
 ### Final Output Format
 Provide only the JSON object with the updated concept key word and abstract. Do not include any additional text or explanations.

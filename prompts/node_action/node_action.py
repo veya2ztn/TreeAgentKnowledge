@@ -1,11 +1,15 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field,ConfigDict
 from typing import Dict, List, Optional, Set, Literal
 import json
 class NodeActionDecision(BaseModel):
+    model_config = ConfigDict(extra='allow')
+
     def json_snapshot(self):
         the_dict = self.model_dump()
         return json.dumps(the_dict, default=lambda o: o.__dict__, sort_keys=True, indent=4)
     
+    
+
     @staticmethod
     def load_from_dict(pool: Dict):
         details_models = {"ADD": (AddAction, AddActionDetails),
@@ -25,14 +29,51 @@ class AddActionDetails(NodeActionDecision):
     """Details for ADD action"""
     new_concept_key_word: str = Field(default="new_concept_key_word", description="Key word for the new concept")
     new_concept_abstract: str = Field(default="new_concept_abstract", description="Abstract description of the new concept")
-
+    
     def load_from_dict(dict: Dict):
         return AddActionDetails(**dict)
     
+    
 class AddAction(NodeActionDecision):
-    action: Literal["ADD"] = "ADD"
+    action:  Literal["ADD"] = "ADD"
     details: AddActionDetails = Field(default=AddActionDetails(), description="Details for ADD action")
+    reason:  str = Field(default="explanation", description="Reasoning for the action")
+
+    def flatten_dict(self):
+        return {
+            "action": "add",
+            "new_concept_key_word": self.details.new_concept_key_word,
+            "new_concept_abstract": self.details.new_concept_abstract,
+            "reason": self.reason
+        }
+
+
+#### UpdateAction
+class UpdateActionDetails(NodeActionDecision):
+    """
+    Details for UPDATE action
+    Update means we will add current incoming content to the current node represent list.
+    Then we need update the abstract/description of the current node.
+    Lets always do information update in post processing
+    """
+    pass
+    # content:str = Field(default="please do not add anything here", description="Content place holder")
+    # new_concept_abstract: str = Field(default="new abstract", description="Updated abstract for the current node")
+    # new_concept_key_word: str = Field(default="new key word", description="Updated key word for the current node")
+
+class UpdateAction(NodeActionDecision):
+    action: Literal["UPDATE"] = "UPDATE"
+    details: UpdateActionDetails = Field(default=UpdateActionDetails(), description="Details for UPDATE action")
     reason: str = Field(default="explanation", description="Reasoning for the action")
+
+    def flatten_dict(self):
+        return {
+            "action": "append",
+            "new_concept_key_word": f"Paper {self.details.content.id_address}",
+            "new_concept_abstract": "",
+            "reason": self.reason
+        }
+
 
 #### DeleteAction
 class DeleteActionDetails(NodeActionDecision):
@@ -70,21 +111,7 @@ class RearrangeAction(NodeActionDecision):
     details: RearrangeActionDetails = Field(default=RearrangeActionDetails(), description="Details for REARRANGE action")
     reason: str = Field(default="explanation", description="Reasoning for the action")
 
-#### UpdateAction
-class UpdateActionDetails(NodeActionDecision):
-    """
-    Details for UPDATE action
-    Update means we will add current incoming content to the current node represent list.
-    Then we need update the abstract/description of the current node.
-    Lets always do information update in post processing
-    """
-    # new_concept_abstract: str = Field(default="new abstract", description="Updated abstract for the current node")
-    # new_concept_key_word: str = Field(default="new key word", description="Updated key word for the current node")
 
-class UpdateAction(NodeActionDecision):
-    action: Literal["UPDATE"] = "UPDATE"
-    details: UpdateActionDetails = Field(default=UpdateActionDetails(), description="Details for UPDATE action")
-    reason: str = Field(default="explanation", description="Reasoning for the action")
 
 #### NoAction
 class NoActionDetails(NodeActionDecision):
