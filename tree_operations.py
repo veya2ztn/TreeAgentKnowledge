@@ -78,7 +78,8 @@ class NodeAgent(NodeStructure):
         self.evolved_count = 0
         self.is_content_updated = False
         self.build_backend_agent('auto')
-        
+        self.use_naive_sglang_mode = True
+
     def build_backend_agent(self, provider='auto'):
         system_message = BaseMessage(
                 role_name=f"Concept Builder in Tree Agent Knowledge System",
@@ -99,6 +100,10 @@ class NodeAgent(NodeStructure):
             if 'deepseek' in base_url:
                 model_platform = ModelPlatformType.OPENAI_COMPATIBILITY_MODEL
                 model_type = "deepseek-chat"
+                max_tokens = 8192
+            elif "yi" in base_url:
+                model_platform = ModelPlatformType.OPENAI_COMPATIBILITY_MODEL
+                model_type = "yi-lightning"
                 max_tokens = 8192
             else:
                 model_platform = ModelPlatformType.OPENAI
@@ -171,7 +176,7 @@ class NodeAgent(NodeStructure):
             evolved_regex = (
                 r"""\{\n"""
                 + r"""    "new_concept_key_word": "[\w\d\s]{6,32}",\n"""
-                + r"""    "new_concept_abstract": "[\w\d\s]{128,512}"\n"""
+                + r"""    "new_concept_abstract": "[\w\d\s]{128,512}",\n"""
                 + r"""    "reason": "[\w\d\s]{128,512}"\n"""
                 + r"""\}"""
             )
@@ -187,6 +192,21 @@ class NodeAgent(NodeStructure):
             )
 
     def step(self, stage, user_msg:BaseMessage, output_schema=None):
+        if self.provider == 'sglang' and self.use_naive_sglang_mode:
+            return self.step_naive(stage, user_msg, output_schema)
+        else:
+            return self.step_smart(stage, user_msg, output_schema)
+
+    def step_naive(self, stage, user_msg:BaseMessage, output_schema=None):
+        assert self.provider == 'sglang'
+        if stage == 'relevant':
+            return self.sglang_relevant_decision_step_naive(user_msg)
+        elif stage == 'action':
+            return self.sglang_node_decision_step_naive(user_msg)
+        else:
+            return self.step_smart(stage, user_msg, output_schema)
+
+    def step_smart(self, stage, user_msg:BaseMessage, output_schema=None):
         if stage == 'evolved':
             backend = self.evolved_model
         elif stage == 'action':
@@ -213,15 +233,121 @@ class NodeAgent(NodeStructure):
                     state = sglang_step.run()
                     output=state.text()
                     output=output[len(message):]
-                    output_dict = json.loads(output)
+                    output_dict = json.loads(output.replace('\n',''))
                     return output_dict
                 except Exception as e:
-                    print(f"Error in parsing JSON: {output}")
+                    print(f"Error in parsing JSON: {output}, {e}")
             raise ValueError("Max retries reached. Unable to parse JSON.")
         else:
             response= backend.step(user_msg, output_schema)
             return eval(response.msg.content.replace("null","None"))
-        
+
+    def sglang_relevant_decision_step_naive(self, user_msg):
+        system_prompt = user_msg.content
+        @sgl.function
+        def decide_relevant_category(s):
+            s += sgl.user(f"""{system_prompt}
+        Now lets DO NOT use the JSON output and do it step by step.
+        ### Core Decision Guidelines
+        1. ALWAYS prefer to dispatch content to more specific ({RelevanceCategory.LOWER}) levels when possible
+        2. Only mark as RELEVANT to current node if:
+        - Content is too general for any children
+        - Content directly addresses the current concept level
+        - Content cannot be logically placed in any existing child nodes
+
+        Firstly, lets point out the decision. Return A means the LOWER and B means the RELEVANT
+        """)
+            s += sgl.assistant(
+                sgl.gen(
+                    "answer",
+                    choices=["A","B"],
+                    choices_method=sgl.greedy_token_selection
+                )
+            )
+        choose_pool = {"A": RelevanceCategory.LOWER, "B": RelevanceCategory.RELEVANT}
+        relevant_category = choose_pool[decide_relevant_category.run()['answer']]
+        if relevant_category == RelevanceCategory.RELEVANT:
+            return DispatchDecision(decision=RelevanceCategory.RELEVANT, next_position=None, reasoning="[omit]")
+        assert relevant_category == RelevanceCategory.LOWER
+
+        if self.children_keys:
+            choose_pool = {str(i):k for i,k in enumerate(self.children_keys)}
+            @sgl.function
+            def decide_next_position(s):
+                s += sgl.user(system_prompt+"\n"+"Now lets assume it is LOWER, please decide the next position for the content:")
+                s += sgl.assistant(
+                    sgl.gen(
+                        "answer",
+                        choices=list(choose_pool.keys()),
+                        choices_method=sgl.greedy_token_selection,
+                    )
+                )
+            next_position = choose_pool[decide_next_position.run()['answer']]
+        else:
+            next_position = None
+        return DispatchDecision(decision=RelevanceCategory.LOWER, next_position=next_position, reasoning="[omit]")
+
+    def sglang_node_decision_step_naive(self, user_msg):
+        system_prompt = user_msg.content
+        action_category_pool = {"A": "ADD", "B": "UPDATE"}
+        @sgl.function
+        def decide_node_decision_category(s):
+            s += sgl.user(f"""{system_prompt}
+Now lets DO NOT use the JSON output and do it step by step.
+### Quick Decision Guide
+
+Choose [UPDATE] when the new content:
+- Enhances or clarifies the existing concept
+- Maintains same abstraction level
+- Adds examples or context
+- Provides additional perspectives
+- Updates current information
+
+Example indicators: "additionally", "furthermore", "for example", "recent studies show"
+
+Choose [ADD] when the new content:
+- Introduces a distinct sub-type or method
+- Represents a more specific concept
+- Could have its own sub-concepts
+- Needs separate explanation
+- Introduces new terminology
+
+Example indicators: "a type of", "a method called", "a specialized form", "a specific approach"
+
+Quick Check:
+✓ Same level of detail → UPDATE
+✓ More specific detail → ADD
+✓ Enhances existing → UPDATE
+✓ Stands alone → ADD
+                        
+Now lets firstly decide the action category of the content to the current node.
+Notice please use A for [ADD] and B for [UPDATE]
+""")
+            
+            s += sgl.assistant(
+                sgl.gen(
+                    "answer",
+                    choices=["A", "B"],
+                    choices_method=sgl.greedy_token_selection,
+                )
+            )
+        node_decision_category = action_category_pool[decide_node_decision_category.run()['answer']]
+        if node_decision_category == "ADD":
+            system_prompt = user_msg.content
+            @sgl.function
+            def create_add_decision_detail(s):
+                s += sgl.user(f"""{system_prompt}
+We will use the ADD action in thie node, now please create the details for the ADD action. Please use Json format.
+""")
+                s += sgl.assistant(sgl.gen("json_output", max_tokens=2048, regex=build_regex_from_object(AddActionDetails)))
+            add_decision_detail = json.loads(create_add_decision_detail.run()['json_output'].replace('\n',''))
+            return AddAction(action="ADD", details=AddActionDetails(**add_decision_detail), reason="[omit]")
+        elif node_decision_category == "UPDATE":
+            return UpdateAction(action="UPDATE", details=UpdateActionDetails(), reason="[omit]")
+        else:
+            raise ValueError(f"Invalid node decision category: {node_decision_category}")
+
+    
     async def step_with_semaphore(self, stage, user_msg, output_schema=None):
         """Wrapper to make step() async and use semaphore for rate limiting"""
         async with self._step_semaphore:
@@ -246,6 +372,7 @@ class NodeAgent(NodeStructure):
             "reason": self_update_pool.get('reason',""),
             "timestamp": datetime.now().strftime("%Y-%m-%d-%H-%M-%S-%f"),
         })
+    
     async def self_evolve(self) -> None:
         """Async version of self evolution"""
         if len(self.executed_action_history) == 0:
@@ -310,11 +437,16 @@ class NodeAgent(NodeStructure):
         """Async version of relevance decision generation"""
         user_msg = self.build_relevant_decision_prompt(content)
         response = await self.step_with_semaphore("relevant", user_msg)  # Assuming step method is made async
- 
-        def basement_polish(string):
-            return string.strip().strip('[]') if string else None
-        response = {k:basement_polish(v) for k,v in response.items()}
-        return DispatchDecision(**response)
+    
+        if isinstance(response, dict):
+            def basement_polish(string):
+                return string.strip().strip('[]') if string else None
+            response = {k:basement_polish(v) for k,v in response.items()}
+            response =  DispatchDecision(**response)
+        
+        assert isinstance(response, DispatchDecision)
+        return response
+
     
     async def make_dispatch_decision(self, content: Content) -> DispatchDecision:
         """Async version of dispatch decision making"""
@@ -363,9 +495,11 @@ class NodeAgent(NodeStructure):
         """Async version of node action decision generation"""
         prompt   = self.build_node_action_decision_prompt(content)
         response = await self.step_with_semaphore("action", prompt)
-        action = NodeActionDecision.load_from_dict(response)
-        action.details.content = content
-        return action
+        if isinstance(response, dict):
+            response = NodeActionDecision.load_from_dict(response)
+        assert isinstance(response, NodeActionDecision)
+        response.details.content = content
+        return response
 
     async def make_node_action_decision_via_content(self, content: Content) -> NodeActionDecision:
         """Async version of node action decision making"""

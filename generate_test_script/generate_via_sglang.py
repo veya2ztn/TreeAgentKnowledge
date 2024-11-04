@@ -10,7 +10,7 @@ import os
 for var in "http_proxy https_proxy HTTP_PROXY HTTPS_PROXY".split():
     os.environ[var]=""
 
-base_url = "http://10.140.24.81:30000/v1"
+base_url = "http://10.140.24.65:30000/v1"
 
 max_tokens= 16384
 import os
@@ -18,7 +18,7 @@ os.environ['OPENAI_API_KEY']=api_key
 os.environ['OPENAI_API_BASE_URL']=base_url
 from tree_operations import *
 import numpy as np
-name = "sglang"
+name = "Nemotron"
 root = f"results/single_to_single/{name}"
 logP = f"results/single_to_single/{name}/logs"
 os.makedirs(root,exist_ok=True)
